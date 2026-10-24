@@ -1,9 +1,35 @@
 
 {
+  "domains": [
+    "vv.video.qq.com",
+    "apd-vlive.apdcdn.tc.qq.com",
+    "ad.tencentvideo.com",
+    "adstats.tencentvideo.com",
+    "adsmind.gdtimg.com",
+    "pgdt.gtimg.cn",
+    "adss.video.qq.com",
+    "adsmind.apdcdn.tc.qq.com",
+    "adsmind.tc.qq.com"
+  ],
+  "exclude-domains": [],
+  "capture-body": false,
+  "max-body-size": 1048576,
   "rewrites": [
     {
       "phase": "reject",
       "pattern": "^https://apd-vlive\\.apdcdn\\.tc\\.qq\\.com/vmind\\.qqvideo\\.tc\\.qq\\.com/[A-Za-z0-9._~%/-]+"
+    },
+    {
+      "phase": "request-body",
+      "pattern": "^https://vv\\.video\\.qq\\.com/getvinfo(?:[/?#]|$)",
+      "search": "sppreviewtype=[0-9]+",
+      "target": "sppreviewtype=0"
+    },
+    {
+      "phase": "request-body",
+      "pattern": "^https://vv\\.video\\.qq\\.com/getvinfo(?:[/?#]|$)",
+      "search": "spsrt=[0-9]+",
+      "target": "spsrt=0"
     }
   ],
   "scripts": [],
@@ -21,12 +47,37 @@
   "httpRules": [
     {
       "type": "url-regex",
-      "pattern": "^https://ad\\.tencentvideo\\.com(?:[/:?]|$)",
+      "pattern": "^https://ad\\.tencentvideo\\.com(?::443)?(?:[/\\?#]|$)",
       "policy": "REJECT"
     },
     {
       "type": "url-regex",
-      "pattern": "^https://adstats\\.tencentvideo\\.com(?:[/:?]|$)",
+      "pattern": "^https://adstats\\.tencentvideo\\.com(?::443)?(?:[/\\?#]|$)",
+      "policy": "REJECT"
+    },
+    {
+      "type": "url-regex",
+      "pattern": "^https://adsmind\\.gdtimg\\.com(?::443)?(?:[/\\?#]|$)",
+      "policy": "REJECT"
+    },
+    {
+      "type": "url-regex",
+      "pattern": "^https://pgdt\\.gtimg\\.cn(?::443)?(?:[/\\?#]|$)",
+      "policy": "REJECT"
+    },
+    {
+      "type": "url-regex",
+      "pattern": "^https://adss\\.video\\.qq\\.com(?::443)?(?:[/\\?#]|$)",
+      "policy": "REJECT"
+    },
+    {
+      "type": "url-regex",
+      "pattern": "^https://adsmind\\.apdcdn\\.tc\\.qq\\.com(?::443)?(?:[/\\?#]|$)",
+      "policy": "REJECT"
+    },
+    {
+      "type": "url-regex",
+      "pattern": "^https://adsmind\\.tc\\.qq\\.com(?::443)?(?:[/\\?#]|$)",
       "policy": "REJECT"
     }
   ]
