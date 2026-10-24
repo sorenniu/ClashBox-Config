@@ -1,0 +1,33 @@
+
+{
+  "rewrites": [
+    {
+      "phase": "reject",
+      "pattern": "^https://apd-vlive\\.apdcdn\\.tc\\.qq\\.com/vmind\\.qqvideo\\.tc\\.qq\\.com/[A-Za-z0-9._~%/-]+"
+    }
+  ],
+  "scripts": [],
+  "bodyJq": [],
+  "locals": [
+    {
+      "pattern": "^https://vv\\.video\\.qq\\.com/(?:diff|get)vmind(?:[/?#]|$)",
+      "data": "{}",
+      "status": 200,
+      "headers": [
+        "Content-Type: application/json; charset=utf-8"
+      ]
+    }
+  ],
+  "httpRules": [
+    {
+      "type": "url-regex",
+      "pattern": "^https://ad\\.tencentvideo\\.com(?:[/:?]|$)",
+      "policy": "REJECT"
+    },
+    {
+      "type": "url-regex",
+      "pattern": "^https://adstats\\.tencentvideo\\.com(?:[/:?]|$)",
+      "policy": "REJECT"
+    }
+  ]
+}
