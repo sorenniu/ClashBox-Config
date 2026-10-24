@@ -1,4 +1,4 @@
-/* ClashBox 通用 V1.5 · iGuGe + 守候网络
+/* ClashBox 通用 V1.6 · iGuGe + 守候网络
  * 六地区、双 Emby、旧策略组映射、保持机场 DNS，不修改 GLOBAL。
  */
 function main(config, profileName) {
@@ -104,6 +104,7 @@ function main(config, profileName) {
       ' 📺 YouTube':'流媒体'
     };
   } else {
+    makeGroup('开发者工具','select',['新加坡','美国','日本','香港','台湾','其他地区']);
     makeGroup('🔰 节点选择','select',['香港','美国','日本','新加坡','台湾','其他地区','DIRECT']);
     makeGroup('🌍 国外媒体','select',['香港','日本','美国','新加坡','🔰 节点选择']);
     makeGroup('🌏 国内媒体','select',['DIRECT','香港','🔰 节点选择']);
@@ -135,7 +136,7 @@ function main(config, profileName) {
     seenRule['!' + rule] = true;
     kept.push(rule);
   }
-  var dev = shouhou ? '开发者工具' : '🔰 节点选择';
+  var dev = '开发者工具';
   var ai = shouhou ? 'ChatGPT / OpenAI' : 'openAI';
   var additions = [
     'DOMAIN-KEYWORD,yusen,' + Y,
