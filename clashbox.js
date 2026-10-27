@@ -1,8 +1,10 @@
 
-/* ClashBox 通用 V1.8 · iGuGe + 守候网络（官方DNS完整保留）
- * 六地区、双 Emby、精简策略组、规则模板精选规则、IP检测代理分流。
- * 不读写 config.dns、config.hosts；不修改 GLOBAL，不合并两家机场节点。
- * 基于线上仓库 sorenniu/ClashBox-Config 的 V1.6（2026-10-27 核验）。
+/* ClashBox 共用 V2.1 · IGG / 守候网络 | 三 Emby + SNTP独立服务
+ * 1111按官方 hc.list 24小时动态更新；1111: 美/港/日/新，默认美国。
+ * Yusen: 直连/港/日/美；守候影院独立；SNTP服务: 直连/港/日/美。
+ * 守候 QX 规则中的影院与机场服务拆分，排除公共云泛域名。
+ * 保留地区选择、流媒体、AI、IP检测、666OS规则及官方DNS。
+ * 使用方法：覆盖 GitHub clashbox.js；不和其他覆写脚本叠加。
  */
 function main(config, profileName) {
   if (!config || typeof config !== 'object' || !Array.isArray(config.proxies) || !Array.isArray(config['proxy-groups'])) return config;
@@ -12,6 +14,7 @@ function main(config, profileName) {
   var shouhou = !!(byName['守候网络'] || byName['📺 Emby影院'] || (byName['节点总控'] && byName['ChatGPT / OpenAI']));
   if (!igg && !shouhou) return config;
   var G = '🎬 守候网络 Emby', Y = '🎬 Yusen Emby';
+  var E = '🎬 1111 Emby', S = '🛰️ SNTP 机场服务';
   var regions = ['香港','台湾','日本','新加坡','美国','其他地区'];
   var pools = {'香港':[],'台湾':[],'日本':[],'新加坡':[],'美国':[],'其他地区':[]};
   var names = [], nameExists = {}, excluded = /流量|到期|套餐|剩余|订阅|客服|官网|过期|traffic|expire/i;
@@ -68,10 +71,13 @@ function main(config, profileName) {
     else { groupNames[name] = groups.length; groups.push(g); }
   }
   var order = ['香港','美国','新加坡','日本','台湾','其他地区'];
-  // 两个 Emby 彼此独立：守候 Emby 不允许直连；Yusen 保持国内直连。
+  // Emby 组只显示地区，具体节点在地区组内设置。
+  // 无可用节点的地区会落到 REJECT，不生成无效节点引用。
   var validRegions = order.filter(function(r) { return pools[r].length > 0; });
   makeGroup(G, 'select', validRegions.length ? validRegions : ['REJECT']);
-  makeGroup(Y, 'select', ['DIRECT']);
+  makeGroup(E, 'select', ['美国','香港','日本','新加坡']);
+  makeGroup(Y, 'select', ['DIRECT','香港','日本','美国']);
+  makeGroup(S, 'select', ['DIRECT','香港','日本','美国']);
   for (i = 0; i < regions.length; i++) {
     var r = regions[i];
     makeGroup(r, 'select', [r + ' · 智能优选'].concat(pools[r]));
@@ -169,12 +175,21 @@ function main(config, profileName) {
     'ipcheck.ing','ip2location.io','ipgeolocation.io'
   ];
   var priority = [
-    // Emby 专属域名优先，不能被任何媒体模板规则截走。
-    'DOMAIN-KEYWORD,yusen,' + Y,
-    'DOMAIN-SUFFIX,array2026.com,' + G,
-    'DOMAIN-SUFFIX,array2026.cc,' + G,
+    // 1111 规则来自管理员提供的动态列表，兼容新增与删除。
+    // classical/text；首次加载要求可连接 GitHub，之后由内核缓存和刷新。
+    'RULE-SET,CB_1111HC,' + E,
+    // 守候影院：QX 官方 cn2gias.uk + SNTP Standard 两条 CF 精确入口。
     'DOMAIN-SUFFIX,cn2gias.uk,' + G,
-    'DOMAIN-SUFFIX,sntp.uk,' + G
+    'DOMAIN,s2.array2026.cc,' + G,
+    'DOMAIN,s3.array2026.com,' + G,
+    // SNTP 机场服务：来自 QX 官方的 SNTP 组（不含公共云泛域名）。
+    'DOMAIN-SUFFIX,sntp.uk,' + S,
+    'DOMAIN-SUFFIX,qzyidc.com,' + S,
+    'DOMAIN-SUFFIX,eihhu.com,' + S,
+    'DOMAIN-SUFFIX,1a1api.top,' + S,
+    'DOMAIN-SUFFIX,wuyouyun.com,' + S,
+    // Yusen 继续单独控制，支持 DIRECT 和地区组。
+    'DOMAIN-KEYWORD,yusen,' + Y
   ];
   ipCheckHosts.forEach(function(host) { priority.push('DOMAIN,' + host + ',' + ipCheckExit); });
   // 用于 IP 检测的 www/API 子域名：更完整，但不使用过宽的 DOMAIN-KEYWORD,ip。
@@ -197,6 +212,13 @@ function main(config, profileName) {
   // 不启用广告 MITM/拦截、不改 DNS、不改 GLOBAL，不导入大型全量代理集。
   var providers = config['rule-providers'];
   if (!providers || typeof providers !== 'object' || Array.isArray(providers)) providers = {};
+  // 1111 提供的原始 classical 规则；不要硬编码旧清单，确保删除也可同步生效。
+  providers.CB_1111HC = {
+    type: 'http', behavior: 'classical', format: 'text',
+    url: 'https://raw.githubusercontent.com/zxcll/sub/refs/heads/main/hc.list',
+    path: './rule_provider/CB_1111HC.list', interval: 86400,
+    proxy: '开发者工具'
+  };
   function addProvider(name, kind, suffix) {
     if (providers[name]) return;
     providers[name] = {
@@ -228,7 +250,14 @@ function main(config, profileName) {
   // 承接现有规则、只替换同类型域名入口和已删除策略组的旧引用。
   var managed = {};
   priority.forEach(function(rule) {
-    var p = rule.split(','); managed[p[0] + '|' + p[1]] = true;
+    var p = rule.split(',');
+    // RULE-SET 引用不会与原规则的同名键冲突。
+    if (p[0] !== 'RULE-SET') managed[p[0] + '|' + p[1]] = true;
+  });
+  // 旧配置里广泛匹配 array2026.com/cc 的影院规则应剔除：
+  // 现在只匹配 s2.array2026.cc 和 s3.array2026.com 两个已确认入口。
+  ['array2026.com','array2026.cc'].forEach(function(host) {
+    managed['DOMAIN-SUFFIX|' + host] = true;
   });
   function suppressManaged(r) {
     var p = r.split(',');
