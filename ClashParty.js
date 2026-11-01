@@ -1,4 +1,4 @@
-/* Clash Party | Personal V1.4 FULL | IGG / SNTP
+/* Clash Party | Personal V1.5 FULL | IGG / SNTP
  * 独立订阅各自应用，保持官方 proxies、DNS/DoH、hosts、proxy-providers 等不变。
  * 生效顺序：本地系统/局域网保护 -> 自定义精确规则 -> 机场剩余规则 -> MATCH 漏网之鱼。
  * 此文件须作为 JavaScript 覆写使用，不是机场订阅 YAML。不要同时启用旧的分组覆写。
@@ -72,14 +72,38 @@ function main(config) {
     }
     function available(list) { return list.filter(function(r) { return active.indexOf(r) >= 0; }); }
     function prefer(list) { var xs = available(list); return xs.length ? xs : ['机场总控']; }
+
+    // 三个 Emby 组额外展示当前机场的香港/美国/日本 0.2 倍节点；只增加可手选节点。
+    // 支持 0.2x、0.20x、0.2倍、0.20倍、20%，不将 2x / 1x 节点误判为低倍率。
+    function isEmbyLowRate(name) {
+      return /(?:^|[^0-9])(?:0[.．]2(?:0)?\s*(?:[x×倍])|20\s*%)(?![0-9])/i.test(name);
+    }
+    var embyLowRate = unique(['香港', '美国', '日本'].reduce(function(out, country) {
+      return out.concat(pools[country].filter(isEmbyLowRate));
+    }, []));
+
+    // 当机场仅使用 proxy-providers 时，过滤来自提供器的 0.2 倍三地区节点。
+    // 正则遵循 RE2 语法，不使用正向/负向预查。
+    var embyCountryPattern = '(?:香港|Hong.?Kong|HK[0-9 _-]|🇭🇰|美国|美國|United.?States|Seattle|Los.?Angeles|US[0-9 _-]|🇺🇸|日本|Japan|Tokyo|Osaka|JP[0-9 _-]|🇯🇵)';
+    var embyRatePattern = '(?:0[.]2(?:0)?[x×倍]|20[ ]*%)';
+    var embyProviderFilter = '(?i)(?:' + embyCountryPattern + '.*' + embyRatePattern + '|' + embyRatePattern + '.*' + embyCountryPattern + ')';
+    function addEmbyGroup(name, preferred) {
+      addGroup(name, 'select', preferred.concat(embyLowRate));
+      if (providerOnly) {
+        var g = generated[generated.length - 1];
+        g.use = providerNames.slice();
+        g.filter = embyProviderFilter;
+        g['exclude-filter'] = excluded;
+      }
+    }
     addGroup('机场总控', 'select', active.concat(['DIRECT']));
     active.forEach(function(r) {
       addGroup(r, 'select', [r + ' · 自动优选'].concat(pools[r]), false, providerOnly ? r : null);
     });
     addGroup('AI 服务', 'select', prefer(['美国','日本','新加坡','香港']).concat(pools['美国']));
-    addGroup('SNTP-Emby', 'select', prefer(['美国','香港','日本','新加坡','其他地区']).concat(['DIRECT']));
-    addGroup('1111 影院', 'select', prefer(['美国','香港','日本','新加坡']).concat(['DIRECT']));
-    addGroup('Yusen 影院', 'select', ['DIRECT'].concat(available(['香港','日本','美国'])));
+    addEmbyGroup('SNTP-Emby', prefer(['美国','香港','日本','新加坡','其他地区']).concat(['DIRECT']));
+    addEmbyGroup('1111 影院', prefer(['美国','香港','日本','新加坡']).concat(['DIRECT']));
+    addEmbyGroup('Yusen 影院', ['DIRECT'].concat(available(['香港','日本','美国'])));
     addGroup('SNTP 机场服务', 'select', ['DIRECT','机场总控'].concat(available(['香港','日本','美国'])));
     addGroup('哔哩哔哩', 'select', ['DIRECT'].concat(available(['香港']), ['机场总控']));
     addGroup('国际流媒体', 'select', prefer(['香港','美国','日本','新加坡']).concat(['机场总控','DIRECT']));
@@ -241,12 +265,12 @@ function main(config) {
     config['proxy-groups'] = groups;
     config['rule-providers'] = providers;
     config.rules = finalRules;
-    console.log('[Personal V1.4 FULL] OK | nodes='+Object.keys(knownNodes).length+
+    console.log('[Personal V1.5 FULL] OK | nodes='+Object.keys(knownNodes).length+
       ' regions='+active.length+' groups='+groups.length+' custom='+personal.length+
       ' original='+rest.length+' providers='+Object.keys(providers).length);
     return config;
   } catch (e) {
-    if (typeof console !== 'undefined') console.error('[Personal V1.4 FULL] ERROR', e && (e.stack||e));
+    if (typeof console !== 'undefined') console.error('[Personal V1.5 FULL] ERROR', e && (e.stack||e));
     return config;
   }
 }
