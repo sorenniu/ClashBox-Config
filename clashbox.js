@@ -1,273 +1,292 @@
-
-/* ClashBox 共用 V2.1 · IGG / 守候网络 | 三 Emby + SNTP独立服务
- * 1111按官方 hc.list 24小时动态更新；1111: 美/港/日/新，默认美国。
- * Yusen: 直连/港/日/美；守候影院独立；SNTP服务: 直连/港/日/美。
- * 守候 QX 规则中的影院与机场服务拆分，排除公共云泛域名。
- * 保留地区选择、流媒体、AI、IP检测、666OS规则及官方DNS。
- * 使用方法：覆盖 GitHub clashbox.js；不和其他覆写脚本叠加。
+/* Personal Routing V1.2 | ClashBox 鸿蒙 | Mihomo JavaScript override
+ * 适配独立启用的 IGG / SNTP 机场配置。每份订阅单独使用，不跨机场合并节点。
+ * 修改范围：proxy-groups / rules / rule-providers；不读取或改写 DNS、DoH、hosts、proxies。
+ * 不与旧版 V2.1/V2.2、其他分组/分流脚本叠加使用。
+ * GitHub 公开仓库可存放：不含订阅链接、密码、DoH UUID。
  */
 function main(config, profileName) {
-  if (!config || typeof config !== 'object' || !Array.isArray(config.proxies) || !Array.isArray(config['proxy-groups'])) return config;
-  var i, j, original = config['proxy-groups'], byName = {};
-  for (i = 0; i < original.length; i++) if (original[i] && typeof original[i].name === 'string') byName[original[i].name] = original[i];
-  var igg = !!(byName['🔰 节点选择'] && byName['🐟 漏网之鱼'] && !byName['📺 Emby影院']);
-  var shouhou = !!(byName['守候网络'] || byName['📺 Emby影院'] || (byName['节点总控'] && byName['ChatGPT / OpenAI']));
-  if (!igg && !shouhou) return config;
-  var G = '🎬 守候网络 Emby', Y = '🎬 Yusen Emby';
-  var E = '🎬 1111 Emby', S = '🛰️ SNTP 机场服务';
-  var regions = ['香港','台湾','日本','新加坡','美国','其他地区'];
-  var pools = {'香港':[],'台湾':[],'日本':[],'新加坡':[],'美国':[],'其他地区':[]};
-  var names = [], nameExists = {}, excluded = /流量|到期|套餐|剩余|订阅|客服|官网|过期|traffic|expire/i;
-  function classify(name) {
-    if (/🇹🇼|台灣|台湾|台北|taiwan|(?:^|[^a-z])TW(?:\d|[^a-z]|$)/i.test(name)) return '台湾';
-    if (/🇭🇰|香港|hong.?kong|(?:^|[^a-z])HK(?:\d|[^a-z]|$)/i.test(name)) return '香港';
-    if (/🇯🇵|日本|东京|大阪|japan|(?:^|[^a-z])JP(?:\d|[^a-z]|$)/i.test(name)) return '日本';
-    if (/🇸🇬|新加坡|狮城|singapore|(?:^|[^a-z])SG(?:\d|[^a-z]|$)/i.test(name)) return '新加坡';
-    if (/🇺🇸|美国|美國|洛杉矶|西雅图|圣何塞|硅谷|纽约|united.?states|(?:^|[^a-z])US(?:\d|[^a-z]|$)/i.test(name)) return '美国';
+  if (!config || typeof config !== 'object') return config;
+  var cfg = config;
+  var rawNodes = Array.isArray(cfg.proxies) ? cfg.proxies : [];
+  var proxyProviders = cfg['proxy-providers'] || {};
+  var providerKeys = Object.keys(proxyProviders);
+  if (!rawNodes.length && !providerKeys.length) {
+    if (typeof console !== 'undefined') console.warn('[Personal V1.2] 未找到节点或节点提供器，跳过覆写');
+    return cfg;
+  }
+
+  // 只按当前正在启用的单个机场配置生成分组，不识别/抓取另一个机场。
+  var regionOrder = ['香港', '日本', '美国', '新加坡', '台湾', '韩国', '其他地区'];
+  var pool = {};
+  regionOrder.forEach(function (r) { pool[r] = []; });
+  var nodeSeen = {};
+  var unusable = /(?:流量|到期|套餐|剩余|订阅|客服|官网|过期|traffic|expire|剩余时间|重置时间)/i;
+  function classify(n) {
+    if (/🇹🇼|台灣|台湾|台北|\bTW\s*[-_#]?\s*\d|\bTaiwan\b/i.test(n)) return '台湾';
+    if (/🇭🇰|香港|Hong[ -]?Kong|\bHK\s*[-_#]?\s*\d|\bHK\b/i.test(n)) return '香港';
+    if (/🇯🇵|日本|东京|大阪|Japan|Tokyo|Osaka|\bJP\s*[-_#]?\s*\d|\bJP\b/i.test(n)) return '日本';
+    if (/🇸🇬|新加坡|狮城|Singapore|\bSG\s*[-_#]?\s*\d|\bSG\b/i.test(n)) return '新加坡';
+    if (/🇺🇸|美国|美國|洛杉矶|西雅图|圣何塞|硅谷|纽约|United[ -]?States|Seattle|Los[ -]?Angeles|\bUS\s*[-_#]?\s*\d|\bUS\b/i.test(n)) return '美国';
+    if (/🇰🇷|韩国|韓國|首尔|首爾|Korea|Seoul|\bKR\s*[-_#]?\s*\d|\bKR\b/i.test(n)) return '韩国';
     return '其他地区';
   }
+  rawNodes.forEach(function (node) {
+    if (!node || typeof node.name !== 'string' || node.type === 'dns' || unusable.test(node.name)) return;
+    if (/^(DIRECT|REJECT|REJECT-DROP|PASS|DNS|GLOBAL)$/i.test(node.name)) return;
+    if (nodeSeen[node.name]) return;
+    nodeSeen[node.name] = true;
+    pool[classify(node.name)].push(node.name);
+  });
+  var providerOnly = !Object.keys(nodeSeen).length && !!providerKeys.length;
+  if (!Object.keys(nodeSeen).length && !providerOnly) return cfg;
+  var regionFilter = {
+    '香港': '(?i)(香港|港|HK[0-9\\s_-]|Hong[ -]?Kong|🇭🇰)',
+    '日本': '(?i)(日本|东京|大阪|JP[0-9\\s_-]|Japan|Tokyo|Osaka|🇯🇵)',
+    '美国': '(?i)(美国|美國|US[0-9\\s_-]|United[ -]?States|Seattle|Los[ -]?Angeles|🇺🇸)',
+    '新加坡': '(?i)(新加坡|狮城|SG[0-9\\s_-]|Singapore|🇸🇬)',
+    '台湾': '(?i)(台湾|台灣|台北|TW[0-9\\s_-]|Taiwan|🇹🇼)',
+    '韩国': '(?i)(韩国|韓國|首尔|KR[0-9\\s_-]|Korea|Seoul|🇰🇷)',
+    '其他地区': '(?i)^(?!.*(?:香港|日本|美国|美國|新加坡|台湾|台灣|韩国|韓國|HK[0-9]|JP[0-9]|US[0-9]|SG[0-9]|TW[0-9]|KR[0-9]|🇭🇰|🇯🇵|🇺🇸|🇸🇬|🇹🇼|🇰🇷)).*$'
+  };
+  var active = regionOrder.filter(function (r) { return providerOnly || pool[r].length > 0; });
   function unique(items) {
-    var out = [], seen = {};
-    for (var z = 0; z < items.length; z++) {
-      var s = items[z];
-      if (typeof s !== 'string' || seen['!' + s]) continue;
-      seen['!' + s] = true; out.push(s);
-    }
+    var seen = {}, out = [];
+    (items || []).forEach(function (x) {
+      if (typeof x !== 'string' || seen['#' + x]) return;
+      seen['#' + x] = true; out.push(x);
+    });
     return out;
   }
-  if (shouhou) {
-    var seenEndpoint = {}, dedup = [];
-    for (i = 0; i < config.proxies.length; i++) {
-      var node = config.proxies[i];
-      if (!node || !node.name || !node.type) continue;
-      var keys = Object.keys(node).sort(), fingerprint = '';
-      for (j = 0; j < keys.length; j++) {
-        var key = keys[j];
-        if (key !== 'name') fingerprint += key + ':' + JSON.stringify(node[key]) + ';';
-      }
-      if (!seenEndpoint[fingerprint]) { seenEndpoint[fingerprint] = true; dedup.push(node); }
-    }
-    config.proxies = dedup;
+  function enabled(names) {
+    return unique(names.filter(function (n) { return n === 'DIRECT' || n === 'REJECT' || !!visible[n] || !!nodeSeen[n]; }));
   }
-  for (i = 0; i < config.proxies.length; i++) {
-    var p = config.proxies[i];
-    if (!p || typeof p.name !== 'string' || p.type === 'dns' || excluded.test(p.name) || /^(DNS|DIRECT|REJECT|PASS)$/i.test(p.name)) continue;
-    if (nameExists['!' + p.name]) continue;
-    nameExists['!' + p.name] = true;
-    names.push(p.name); pools[classify(p.name)].push(p.name);
-  }
-  var groups = [], groupNames = {};
-  function makeGroup(name, type, members) {
-    var proxyList = unique(members);
-    if (!proxyList.length) proxyList = ['REJECT'];
-    var g = {name:name, type:type, proxies:proxyList};
+  var visible = {};
+  active.forEach(function (r) { visible[r] = true; });
+  visible['机场总控'] = true;
+  var groups = [];
+  function addGroup(name, type, options, hidden) {
+    var g = {name: name, type: type, proxies: unique(options)};
+    if (hidden) g.hidden = true;
     if (type === 'url-test') {
       g.url = 'http://www.gstatic.com/generate_204';
-      g.interval = 3600; g.timeout = 5000; g.tolerance = 100; g.lazy = false;
+      g.interval = 1200; g.timeout = 5000; g.tolerance = 100; g.lazy = true;
     }
-    g.hidden = false;
-    g['include-all'] = false; g['include-all-proxies'] = false; g['include-all-providers'] = false;
-    if (groupNames[name] !== undefined) groups[groupNames[name]] = g;
-    else { groupNames[name] = groups.length; groups.push(g); }
+    if (providerOnly && regionFilter[name.replace(/ · 自动优选$/, '')]) {
+      g.use = providerKeys.slice();
+      g.filter = regionFilter[name.replace(/ · 自动优选$/, '')];
+      g['exclude-filter'] = '(?i)(流量|套餐|到期|剩余|订阅|官网|客服|traffic|expire)';
+    }
+    if (type === 'select' && g.proxies.length) g['default-selected'] = g.proxies[0];
+    groups.push(g);
   }
-  var order = ['香港','美国','新加坡','日本','台湾','其他地区'];
-  // Emby 组只显示地区，具体节点在地区组内设置。
-  // 无可用节点的地区会落到 REJECT，不生成无效节点引用。
-  var validRegions = order.filter(function(r) { return pools[r].length > 0; });
-  makeGroup(G, 'select', validRegions.length ? validRegions : ['REJECT']);
-  makeGroup(E, 'select', ['美国','香港','日本','新加坡']);
-  makeGroup(Y, 'select', ['DIRECT','香港','日本','美国']);
-  makeGroup(S, 'select', ['DIRECT','香港','日本','美国']);
-  for (i = 0; i < regions.length; i++) {
-    var r = regions[i];
-    makeGroup(r, 'select', [r + ' · 智能优选'].concat(pools[r]));
-    makeGroup(r + ' · 智能优选', 'url-test', pools[r]);
-  }
-  var aliases = {};
-  if (shouhou) {
-    makeGroup('节点总控','select',['香港','美国','日本','新加坡','台湾','其他地区','DIRECT']);
-    makeGroup('ChatGPT / OpenAI','select',['美国'].concat(pools['美国']));
-    makeGroup('国内服务','select',['DIRECT','节点总控']);
-    makeGroup('国际服务','select',['香港','美国','新加坡','日本','节点总控','DIRECT']);
-    makeGroup('其他 AI','select',['美国','新加坡','日本','节点总控']);
-    makeGroup('开发者工具','select',['新加坡','美国','日本','香港','节点总控']);
-    makeGroup('流媒体','select',['香港','美国','日本','新加坡','节点总控']);
-    makeGroup('社交媒体','select',['香港','美国','日本','节点总控']);
-    makeGroup('微软服务','select',['DIRECT','香港','美国','节点总控']);
-    makeGroup('苹果服务','select',['DIRECT','香港','美国','节点总控']);
-    makeGroup('漏网之鱼','select',['DIRECT','香港','美国','节点总控']);
-    aliases = {
-      '守候网络':'节点总控','📺 Emby影院':'流媒体',
-      '📺 YouTube':'流媒体','📺 Disney':'流媒体','📺 Netflix':'流媒体',
-      '🐭 Twitch':'流媒体','📺 HBOMAX':'流媒体','🍎 Apple TV':'流媒体',
-      '📺 Bilibili':'国内服务',
-      '📲 Telegram':'社交媒体','电报信息':'社交媒体',
-      '💬 OpenAi':'ChatGPT / OpenAI',
-      '💬 Cursor':'其他 AI','💬 Gemini':'其他 AI','💬 Claude':'其他 AI','💬 Perplexity':'其他 AI',
-      '🌏 Discord':'社交媒体','🌏 Twitter':'社交媒体','🌏 巴哈姆特':'社交媒体','🌏 Tiktok':'社交媒体',
-      '🌏 Dropbox':'国际服务','网络云盘':'国际服务',
-      '✈️ Bing':'微软服务','🛩 Copilot':'微软服务',
-      '🍎 Apple':'苹果服务','🌏 GFWlist':'国际服务',
-      'Steam / 游戏':'漏网之鱼','🌏 Steam':'漏网之鱼', '🌏 Xbox':'漏网之鱼',
-      'PT 下载':'漏网之鱼', '🌏 PrivateTracker':'漏网之鱼',
-      '🐟 漏网之鱼':'漏网之鱼', ' 📺 YouTube':'流媒体'
-    };
-  } else {
-    makeGroup('开发者工具','select',['新加坡','美国','日本','香港','台湾','其他地区']);
-    makeGroup('🔰 节点选择','select',['香港','美国','日本','新加坡','台湾','其他地区','DIRECT']);
-    makeGroup('🌍 国外媒体','select',['香港','日本','美国','新加坡','🔰 节点选择']);
-    makeGroup('🌏 国内媒体','select',['DIRECT','香港','🔰 节点选择']);
-    makeGroup('社交媒体','select',['香港','美国','新加坡','日本','🔰 节点选择']);
-    makeGroup('Ⓜ️ 微软服务','select',['DIRECT','香港','美国','🔰 节点选择']);
-    makeGroup('🍎 苹果服务','select',['DIRECT','香港','美国','🔰 节点选择']);
-    var aiEntries = ['美国'].concat(pools['美国']);
-    if (nameExists['!ChatGPT & AI 专线']) aiEntries.unshift('ChatGPT & AI 专线');
-    makeGroup('openAI','select',aiEntries);
-    makeGroup('🎯 本地直连','select',['DIRECT']);
-    makeGroup('🐟 漏网之鱼','select',['DIRECT','香港','美国','🔰 节点选择']);
-    aliases = {
-      '📲 电报信息':'社交媒体', '电报信息':'社交媒体',
-      'SteamGame':'🐟 漏网之鱼','Steam / 游戏':'🐟 漏网之鱼',
-      '🌏 Steam':'🐟 漏网之鱼','🌏 Xbox':'🐟 漏网之鱼',
-      'PT 下载':'🐟 漏网之鱼','🌏 PrivateTracker':'🐟 漏网之鱼',
-      '网络云盘':'🔰 节点选择','🌏 Dropbox':'🔰 节点选择',
-      '♻️ 自动选择 - HK':'香港 · 智能优选',
-      '♻️ 自动选择 - US':'美国 · 智能优选',
-      '♻️ 自动选择 - JP':'日本 · 智能优选'
-    };
-  }
-  function translateRule(rule) {
-    if (typeof rule !== 'string') return null;
-    var parts = rule.split(','), end = parts.length - 1;
-    if (parts[end] === 'no-resolve') end--;
-    if (aliases[parts[end]]) parts[end] = aliases[parts[end]];
-    return parts.join(',');
-  }
-  var oldRules = Array.isArray(config.rules) ? config.rules : [];
-  var kept = [], oldTail = [], seenRule = {};
-  for (i = 0; i < oldRules.length; i++) {
-    var rule = translateRule(oldRules[i]);
-    if (!rule || rule.indexOf('MATCH,') === 0 || seenRule['!' + rule]) continue;
-    seenRule['!' + rule] = true;
-    // GEOIP CN/GEOSITE cn 等兜底规则靠后，避免提前截住媒体/社交规则。
-    if (/^(GEOIP,CN,|GEOSITE,cn,|DOMAIN-SUFFIX,cn,)/i.test(rule)) oldTail.push(rule);
-    else kept.push(rule);
-  }
+  addGroup('机场总控', 'select', enabled(active.concat(['DIRECT'])));
+  active.forEach(function (r) {
+    var auto = r + ' · 自动优选';
+    addGroup(r, 'select', [auto].concat(pool[r]));
+  });
 
-  var dev = '开发者工具';
-  var ai = shouhou ? 'ChatGPT / OpenAI' : 'openAI';
-  var aiOther = shouhou ? '其他 AI' : 'openAI';
-  var social = '社交媒体';
-  var stream = shouhou ? '流媒体' : '🌍 国外媒体';
-  var apple = shouhou ? '苹果服务' : '🍎 苹果服务';
-  var microsoft = shouhou ? '微软服务' : 'Ⓜ️ 微软服务';
-  var cn = shouhou ? '国内服务' : '🎯 本地直连';
-  var fallback = shouhou ? '漏网之鱼' : '🐟 漏网之鱼';
-  var ipCheckExit = shouhou ? '节点总控' : '🔰 节点选择';
+  function choose(preferred, fallback) {
+    var r = enabled(preferred);
+    return r.length ? r : [fallback || 'DIRECT'];
+  }
+  var usDirect = pool['美国'].slice();
+  var us = visible['美国'] ? ['美国'] : [];
+  var hk = visible['香港'] ? ['香港'] : [];
+  var jp = visible['日本'] ? ['日本'] : [];
+  var sg = visible['新加坡'] ? ['新加坡'] : [];
+  var other = active.filter(function (r) { return ['美国', '香港', '日本', '新加坡'].indexOf(r) === -1; });
+  addGroup('AI 服务', 'select', choose(us.concat(usDirect, jp, sg, hk, ['机场总控'])));
+  addGroup('SNTP-Emby', 'select', choose(us.concat(hk, jp, sg, other, ['DIRECT'])));
+  addGroup('1111 影院', 'select', choose(us.concat(hk, jp, sg, ['DIRECT'])));
+  addGroup('Yusen 影院', 'select', choose(['DIRECT'].concat(hk, jp, us)));
+  addGroup('SNTP 机场服务', 'select', choose(['DIRECT', '机场总控'].concat(hk, jp, us)));
+  addGroup('哔哩哔哩', 'select', choose(['DIRECT'].concat(hk, ['机场总控'])));
+  addGroup('国际流媒体', 'select', choose(hk.concat(us, jp, sg, ['机场总控', 'DIRECT'])));
+  addGroup('Telegram / 社交', 'select', choose(['机场总控'].concat(us, hk, jp, ['DIRECT'])));
+  addGroup('开发者工具', 'select', choose(sg.concat(us, jp, hk, ['机场总控', 'DIRECT'])));
+  addGroup('Microsoft 服务', 'select', choose(['DIRECT', '机场总控'].concat(us, hk)));
+  addGroup('Apple 服务', 'select', choose(['DIRECT', '机场总控'].concat(us, hk)));
+  addGroup('Steam / 游戏', 'select', choose(['DIRECT', '机场总控'].concat(hk, us)));
+  addGroup('网络检测', 'select', choose(['机场总控'].concat(us, hk, ['DIRECT'])));
+  addGroup('国内服务', 'select', ['DIRECT', '机场总控']);
+  addGroup('国际服务', 'select', choose(['机场总控'].concat(hk, us, jp, sg, ['DIRECT'])));
+  addGroup('漏网之鱼', 'select', choose(['DIRECT', '机场总控'].concat(hk, us)));
+  // 自动测速组虽然可被地区组引用，但尽可能不在首页单独出现。
+  active.forEach(function (r) {
+    addGroup(r + ' · 自动优选', 'url-test', pool[r].slice(), true);
+  });
 
-  // ClashBox 检测页/浏览器第三方 IP 查询：将常见接口置于规则最前方。
-  // 仅当请求实际经过 Mihomo 时才生效；不能修改 App 绕过 VPN 的原生请求。
-  var ipCheckHosts = [
-    'ipinfo.io','ip-api.com','ipapi.co','ipapi.is','ipwho.is',
-    'ipify.org','api.ipify.org','api64.ipify.org','ip.sb','ip.skk.moe',
-    'ifconfig.me','ifconfig.co','icanhazip.com','ident.me','checkip.amazonaws.com',
-    'api.myip.com','ping0.cc','ip111.cn','myip.ipip.net','ipleak.net',
-    'ipcheck.ing','ip2location.io','ipgeolocation.io'
-  ];
-  var priority = [
-    // 1111 规则来自管理员提供的动态列表，兼容新增与删除。
-    // classical/text；首次加载要求可连接 GitHub，之后由内核缓存和刷新。
-    'RULE-SET,CB_1111HC,' + E,
-    // 守候影院：QX 官方 cn2gias.uk + SNTP Standard 两条 CF 精确入口。
-    'DOMAIN-SUFFIX,cn2gias.uk,' + G,
-    'DOMAIN,s2.array2026.cc,' + G,
-    'DOMAIN,s3.array2026.com,' + G,
-    // SNTP 机场服务：来自 QX 官方的 SNTP 组（不含公共云泛域名）。
-    'DOMAIN-SUFFIX,sntp.uk,' + S,
-    'DOMAIN-SUFFIX,qzyidc.com,' + S,
-    'DOMAIN-SUFFIX,eihhu.com,' + S,
-    'DOMAIN-SUFFIX,1a1api.top,' + S,
-    'DOMAIN-SUFFIX,wuyouyun.com,' + S,
-    // Yusen 继续单独控制，支持 DIRECT 和地区组。
-    'DOMAIN-KEYWORD,yusen,' + Y
-  ];
-  ipCheckHosts.forEach(function(host) { priority.push('DOMAIN,' + host + ',' + ipCheckExit); });
-  // 用于 IP 检测的 www/API 子域名：更完整，但不使用过宽的 DOMAIN-KEYWORD,ip。
-  ['ipinfo.io','ip-api.com','ipapi.co','ipify.org','ip.sb','ip.skk.moe',
-    'ifconfig.me','ifconfig.co','ping0.cc','ip2location.io','ipgeolocation.io']
-    .forEach(function(host) { priority.push('DOMAIN-SUFFIX,' + host + ',' + ipCheckExit); });
-  [
-    'github.com','githubusercontent.com','githubassets.com','github.io',
-    'ghcr.io','gitlab.com','bitbucket.org','npmjs.com','npmjs.org',
-    'pypi.org','pythonhosted.org','docker.com','docker.io','quay.io'
-  ].forEach(function(host) { priority.push('DOMAIN-SUFFIX,' + host + ',' + dev); });
-  ['openai.com','chatgpt.com','oaistatic.com','oaiusercontent.com']
-    .forEach(function(host) { priority.push('DOMAIN-SUFFIX,' + host + ',' + ai); });
-  ['t.me','telegram.org','telegram.me','telegram.dog','telegra.ph','telesco.pe']
-    .forEach(function(host) { priority.push('DOMAIN-SUFFIX,' + host + ',' + social); });
-  ['qq.com','weixin.qq.com','wechat.com','taobao.com','jd.com','alipay.com','bilibili.com']
-    .forEach(function(host) { priority.push('DOMAIN-SUFFIX,' + host + ',' + cn); });
-
-  // 采用昨天看到的 666OS 模板之分类结构，精选 8 个远程 MRS；
-  // 不启用广告 MITM/拦截、不改 DNS、不改 GLOBAL，不导入大型全量代理集。
-  var providers = config['rule-providers'];
-  if (!providers || typeof providers !== 'object' || Array.isArray(providers)) providers = {};
-  // 1111 提供的原始 classical 规则；不要硬编码旧清单，确保删除也可同步生效。
-  providers.CB_1111HC = {
-    type: 'http', behavior: 'classical', format: 'text',
-    url: 'https://raw.githubusercontent.com/zxcll/sub/refs/heads/main/hc.list',
-    path: './rule_provider/CB_1111HC.list', interval: 86400,
-    proxy: '开发者工具'
+  // 原机场策略组的规则引用映射到新策略，避免删组导致原机场规则失效。
+  var alias = {
+    '🔰 节点选择': '机场总控', '守候网络': '机场总控', '节点总控': '机场总控',
+    '♻️ 自动选择 - HK': '香港', '♻️ 自动选择 - JP': '日本', '♻️ 自动选择 - US': '美国',
+    '🌍 国外媒体': '国际流媒体', '🌏 国内媒体': '国内服务',
+    '📺 YouTube': '国际流媒体', '📺 Disney': '国际流媒体',
+    '📺 Netflix': '国际流媒体', '📺 HBOMAX': '国际流媒体',
+    '📺 HBO': '国际流媒体', '🐭 Twitch': '国际流媒体',
+    '🍎 Apple TV': '国际流媒体', '流媒体': '国际流媒体',
+    '📺 Bilibili': '哔哩哔哩', '📺 哔哩哔哩': '哔哩哔哩',
+    '📲 Telegram': 'Telegram / 社交', '📲 电报信息': 'Telegram / 社交',
+    '电报信息': 'Telegram / 社交', '社交媒体': 'Telegram / 社交',
+    '🌏 Discord': 'Telegram / 社交', '🌏 Twitter': 'Telegram / 社交',
+    '🌏 Tiktok': 'Telegram / 社交', '🌏 巴哈姆特': 'Telegram / 社交',
+    '💬 OpenAi': 'AI 服务', 'openAI': 'AI 服务',
+    'ChatGPT / OpenAI': 'AI 服务', '其他 AI': 'AI 服务',
+    '💬 Cursor': 'AI 服务', '💬 Gemini': 'AI 服务',
+    '💬 Claude': 'AI 服务', '💬 Perplexity': 'AI 服务',
+    '🛩 Copilot': 'AI 服务', '✈️ Bing': 'Microsoft 服务',
+    'Ⓜ️ 微软服务': 'Microsoft 服务', '微软服务': 'Microsoft 服务',
+    '🍎 Apple': 'Apple 服务', '🍎 苹果服务': 'Apple 服务', '苹果服务': 'Apple 服务',
+    'SteamGame': 'Steam / 游戏', '🌏 Steam': 'Steam / 游戏',
+    'Steam / 游戏': 'Steam / 游戏', '🌏 Xbox': 'Steam / 游戏',
+    '🌏 Dropbox': '国际服务', '网络云盘': '国际服务',
+    '🌏 GFWlist': '国际服务', '🌏 PrivateTracker': '国际服务',
+    '国际服务': '国际服务', '国内服务': '国内服务',
+    '🎯 本地直连': 'DIRECT', '🐟 漏网之鱼': '漏网之鱼',
+    '漏网之鱼': '漏网之鱼', '开发者工具': '开发者工具',
+    '🎬 Yusen Emby': 'Yusen 影院'
   };
-  function addProvider(name, kind, suffix) {
-    if (providers[name]) return;
-    providers[name] = {
-      type:'http', behavior:kind, format:'mrs',
-      url:'https://github.com/666OS/rules/raw/release/mihomo/' +
-          (kind === 'ipcidr' ? 'ip/' : 'domain/') + suffix + '.mrs',
-      path:'./rule_provider/666OS_' + name + '.mrs', interval:86400
-    };
-  }
-  addProvider('CB_AI','domain','AI');
-  addProvider('CB_Telegram','domain','Telegram');
-  addProvider('CB_TelegramIP','ipcidr','Telegram');
-  addProvider('CB_SocialMedia','domain','SocialMedia');
-  addProvider('CB_Streaming','domain','Streaming');
-  addProvider('CB_Apple','domain','Apple');
-  addProvider('CB_Microsoft','domain','Microsoft');
-  addProvider('CB_China','domain','China');
-  config['rule-providers'] = providers;
-
-  var templateRules = [
-    'RULE-SET,CB_AI,' + aiOther,
-    'RULE-SET,CB_Telegram,' + social,
-    'RULE-SET,CB_TelegramIP,' + social + ',no-resolve',
-    'RULE-SET,CB_SocialMedia,' + social,
-    'RULE-SET,CB_Streaming,' + stream,
-    'RULE-SET,CB_Apple,' + apple,
-    'RULE-SET,CB_Microsoft,' + microsoft
-  ];
-  // 承接现有规则、只替换同类型域名入口和已删除策略组的旧引用。
-  var managed = {};
-  priority.forEach(function(rule) {
+  var oldGroupNames = {};
+  (Array.isArray(cfg['proxy-groups']) ? cfg['proxy-groups'] : []).forEach(function (g) {
+    if (g && g.name) oldGroupNames[g.name] = true;
+  });
+  var availableGroup = {};
+  groups.forEach(function (g) { availableGroup[g.name] = true; });
+  function getTarget(rule) {
     var p = rule.split(',');
-    // RULE-SET 引用不会与原规则的同名键冲突。
-    if (p[0] !== 'RULE-SET') managed[p[0] + '|' + p[1]] = true;
-  });
-  // 旧配置里广泛匹配 array2026.com/cc 的影院规则应剔除：
-  // 现在只匹配 s2.array2026.cc 和 s3.array2026.com 两个已确认入口。
-  ['array2026.com','array2026.cc'].forEach(function(host) {
-    managed['DOMAIN-SUFFIX|' + host] = true;
-  });
-  function suppressManaged(r) {
-    var p = r.split(',');
-    return !managed[p[0] + '|' + p[1]];
+    var k = p.length - 1;
+    if (p[k] === 'no-resolve') k--;
+    return {parts: p, index: k, target: String(p[k] || '').trim()};
   }
-  kept = kept.filter(suppressManaged);
-  oldTail = oldTail.filter(suppressManaged);
-  // 将模板中的国内规则放在海外优先规则之后、国内 IP 兜底之前。
-  config.rules = unique(priority.concat(templateRules, kept, ['RULE-SET,CB_China,' + cn], oldTail, ['MATCH,' + fallback]));
-  config['proxy-groups'] = groups;
-  // 严格不读写 config.dns / config.hosts。官方订阅负责所有 DNS。
-  return config;
+  function canonical(oldName) {
+    var newName = alias[oldName] || oldName;
+    if (availableGroup[newName] || ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'dns', 'DNS'].indexOf(newName) !== -1) return newName;
+    if (oldGroupNames[oldName]) {
+      if (/Emby/i.test(oldName)) return 'SNTP-Emby';
+      if (/AI|OpenAI|GPT|Claude|Gemini|Cursor/i.test(oldName)) return 'AI 服务';
+      if (/Bili/i.test(oldName)) return '哔哩哔哩';
+      if (/媒体|Netflix|Disney|YouTube|视频|影音/i.test(oldName)) return '国际流媒体';
+      if (/国内|直连/i.test(oldName)) return 'DIRECT';
+      return '机场总控';
+    }
+    return newName;
+  }
+  // 既然用户仅希望 SNTP 主入口进入 SNTP-Emby，移除旧机场 Emby 宽泛规则。
+  var legacyEmby = {'📺 Emby影院': true, '🎬 守候网络 Emby': true,
+    '🎬 守候网络 Emby影院': true, '守候影院': true, 'SNTP-Emby': true};
+  var oldRules = Array.isArray(cfg.rules) ? cfg.rules : [];
+  var safeHead = [], tail = [], matchTargets = [];
+  function isSafetyRule(rule) {
+    return /^(IP-CIDR6?,(?:127\.|10\.|172\.16\.|192\.168\.|169\.254\.|100\.64\.|::1\/|fc00:|fe80:))/i.test(rule) ||
+      /^DOMAIN-SUFFIX,local,/i.test(rule) ||
+      /^AND,\(\(NETWORK,UDP\),\(DST-PORT,53\)\),dns$/i.test(rule);
+  }
+  var leadingSafe = true;
+  oldRules.forEach(function (old) {
+    if (typeof old !== 'string') return;
+    var obj = getTarget(old), type = obj.parts[0];
+    if (type === 'MATCH') { matchTargets.push(obj.target); return; }
+    if (legacyEmby[obj.target]) return;
+    var mapped = canonical(obj.target);
+    // 原规则引用了已删除的分组时，不产生无效出站。
+    if (oldGroupNames[obj.target] && !availableGroup[mapped] && mapped !== 'DIRECT') mapped = '机场总控';
+    obj.parts[obj.index] = mapped;
+    var rule = obj.parts.join(',');
+    if (leadingSafe && isSafetyRule(rule)) safeHead.push(rule);
+    else { leadingSafe = false; tail.push(rule); }
+  });
+
+  // 只添加必要的自定义远程源；不引入 1111 过宽的 IP-CIDR。
+  var defs = cfg['rule-providers'] && typeof cfg['rule-providers'] === 'object'
+    ? Object.assign({}, cfg['rule-providers']) : {};
+  function ensureProvider(name, url, behavior, format) {
+    var keys = Object.keys(defs);
+    for (var i = 0; i < keys.length; i++) if (defs[keys[i]] && defs[keys[i]].url === url) return keys[i];
+    var key = name, idx = 2;
+    while (defs[key]) key = name + '_' + idx++;
+    defs[key] = {type:'http', behavior:behavior, format:format, url:url,
+      path:'./rule_provider/' + key + (format === 'mrs' ? '.mrs' : '.yaml'), interval:86400};
+    return key;
+  }
+  var pAI = ensureProvider('USR_AI', 'https://github.com/666OS/rules/raw/release/mihomo/domain/AI.mrs', 'domain', 'mrs');
+  var pTelegram = ensureProvider('USR_Telegram', 'https://github.com/666OS/rules/raw/release/mihomo/domain/Telegram.mrs', 'domain', 'mrs');
+  var pTelegramIP = ensureProvider('USR_TelegramIP', 'https://github.com/666OS/rules/raw/release/mihomo/ip/Telegram.mrs', 'ipcidr', 'mrs');
+  var pDev = ensureProvider('USR_Dev', 'https://github.com/666OS/rules/raw/release/mihomo/domain/Dev.mrs', 'domain', 'mrs');
+  var pBili = ensureProvider('USR_Bilibili', 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/BiliBili/BiliBili.yaml', 'classical', 'yaml');
+  var pStreaming = ensureProvider('USR_Streaming', 'https://github.com/666OS/rules/raw/release/mihomo/domain/Streaming.mrs', 'domain', 'mrs');
+
+  // 私人精确路由：优于机场的 GEOIP、GEOSITE、DOMAIN、MATCH 等通用分流。
+  var personal = [
+    'DOMAIN-SUFFIX,sntp.me,SNTP 机场服务',
+    'DOMAIN-SUFFIX,sntp.uk,SNTP 机场服务',
+    'DOMAIN,std.cn2gias.uk,SNTP-Emby',
+    'DOMAIN,s2.array2026.cc,DIRECT',
+    'DOMAIN,s3.array2026.com,DIRECT',
+    'DOMAIN,emby.yusen.cc.cd,Yusen 影院',
+    'DOMAIN,aaa.yusen6.ccwu.cc,Yusen 影院',
+    'DOMAIN,13.yusen.cyou,Yusen 影院',
+    'DOMAIN,embya.yusen.cyou,Yusen 影院',
+    'DOMAIN-SUFFIX,emby.moe,1111 影院',
+    'DOMAIN-SUFFIX,xxlb.net,1111 影院',
+    'DOMAIN-SUFFIX,loseremby.org,1111 影院',
+    'DOMAIN-SUFFIX,zabc.net,1111 影院',
+    'DOMAIN-SUFFIX,openai.com,AI 服务',
+    'DOMAIN-SUFFIX,chatgpt.com,AI 服务',
+    'DOMAIN-SUFFIX,oaistatic.com,AI 服务',
+    'DOMAIN-SUFFIX,oaiusercontent.com,AI 服务',
+    'DOMAIN-SUFFIX,anthropic.com,AI 服务',
+    'DOMAIN-SUFFIX,claude.ai,AI 服务',
+    'DOMAIN-SUFFIX,perplexity.ai,AI 服务',
+    'DOMAIN,gemini.google.com,AI 服务',
+    'DOMAIN,aistudio.google.com,AI 服务',
+    'DOMAIN,generativelanguage.googleapis.com,AI 服务',
+    'RULE-SET,' + pAI + ',AI 服务',
+    'RULE-SET,' + pBili + ',哔哩哔哩',
+    'RULE-SET,' + pTelegram + ',Telegram / 社交',
+    'RULE-SET,' + pTelegramIP + ',Telegram / 社交,no-resolve',
+    'DOMAIN-SUFFIX,github.com,开发者工具',
+    'DOMAIN-SUFFIX,githubusercontent.com,开发者工具',
+    'DOMAIN-SUFFIX,githubassets.com,开发者工具',
+    'DOMAIN-SUFFIX,github.io,开发者工具',
+    'DOMAIN-SUFFIX,ghcr.io,开发者工具',
+    'DOMAIN-SUFFIX,gitlab.com,开发者工具',
+    'DOMAIN-SUFFIX,docker.io,开发者工具',
+    'DOMAIN-SUFFIX,pypi.org,开发者工具',
+    'DOMAIN-SUFFIX,npmjs.org,开发者工具',
+    'RULE-SET,' + pDev + ',开发者工具',
+    'DOMAIN-SUFFIX,steamcommunity.com,Steam / 游戏',
+    'DOMAIN-SUFFIX,steampowered.com,Steam / 游戏',
+    'DOMAIN-SUFFIX,steamcontent.com,Steam / 游戏',
+    'DOMAIN,ipinfo.io,网络检测',
+    'DOMAIN,ip-api.com,网络检测',
+    'DOMAIN,ip.sb,网络检测',
+    'DOMAIN,ifconfig.me,网络检测',
+    'DOMAIN,api.ipify.org,网络检测',
+    'DOMAIN,ipcheck.ing,网络检测',
+    'DOMAIN-SUFFIX,weixin.qq.com,DIRECT',
+    'DOMAIN-SUFFIX,wechat.com,DIRECT',
+    'DOMAIN-SUFFIX,alipay.com,DIRECT',
+    'DOMAIN-SUFFIX,taobao.com,DIRECT',
+    'DOMAIN-SUFFIX,jd.com,DIRECT',
+    'RULE-SET,' + pStreaming + ',国际流媒体'
+  ];
+  function matchKey(s) {
+    var p = s.split(',');
+    return p[0] + '|' + (p[1] || '');
+  }
+  var personalKeys = {};
+  personal.forEach(function (s) { personalKeys[matchKey(s)] = true; });
+  // 原机场同条件旧规则已由个人规则覆盖；其余原有规则保持相对顺序。
+  var oldDedup = {};
+  tail = tail.filter(function (s) {
+    var k = matchKey(s);
+    if (personalKeys[k] || oldDedup['!' + s]) return false;
+    oldDedup['!' + s] = true;
+    return true;
+  });
+  cfg['proxy-groups'] = groups;
+  cfg['rule-providers'] = defs;
+  cfg.rules = safeHead.concat(personal, tail, ['MATCH,漏网之鱼']);
+  if (typeof console !== 'undefined') console.log('[Personal V1.2 ClashBox 鸿蒙] 已加载：地区=' + active.length + ', 个人规则=' + personal.length + ', 原机场规则=' + tail.length);
+  return cfg;
 }
