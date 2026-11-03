@@ -382,6 +382,21 @@ function main(config) {
     );
 
     var personalRules = [
+      
+      // 国内 AI 优先直连
+      'DOMAIN-SUFFIX,deepseek.com,DIRECT',
+      'DOMAIN-SUFFIX,deepseek.cn,DIRECT',
+      'DOMAIN-SUFFIX,kimi.com,DIRECT',
+      'DOMAIN-SUFFIX,kimi.ai,DIRECT',
+      'DOMAIN-SUFFIX,moonshot.cn,DIRECT',
+      'DOMAIN-SUFFIX,moonshot.ai,DIRECT',
+      'DOMAIN-SUFFIX,qwen.ai,DIRECT',
+      'DOMAIN-SUFFIX,tongyi.com,DIRECT',
+      'DOMAIN-SUFFIX,doubao.com,DIRECT',
+      'DOMAIN-SUFFIX,volcengine.com,DIRECT',
+      'DOMAIN-SUFFIX,bigmodel.cn,DIRECT',
+      'DOMAIN-SUFFIX,zhipuai.cn,DIRECT',
+
       // SNTP 机场服务
       'DOMAIN-SUFFIX,sntp.me,SNTP 机场服务',
       'DOMAIN-SUFFIX,sntp.uk,SNTP 机场服务',
@@ -418,7 +433,6 @@ function main(config) {
       'DOMAIN,gemini.google.com,AI 服务',
       'DOMAIN,aistudio.google.com,AI 服务',
       'DOMAIN,generativelanguage.googleapis.com,AI 服务',
-      'RULE-SET,' + ai + ',AI 服务',
 
       // Bilibili
       'RULE-SET,' + bili + ',哔哩哔哩',
