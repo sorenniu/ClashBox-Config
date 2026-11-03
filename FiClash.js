@@ -203,6 +203,11 @@ function main(config) {
       ['DIRECT'].concat(available(['香港','日本','美国']))
     );
 
+    addEmbyGroup(
+      '宸澄影院',
+      ['DIRECT'].concat(available(['香港','美国','日本']))
+    );
+
     group(
       'SNTP 机场服务',
       'select',
@@ -392,7 +397,10 @@ function main(config) {
       'DOMAIN,13.yusen.cyou,Yusen 影院',
       'DOMAIN,embya.yusen.cyou,Yusen 影院',
       'DOMAIN-KEYWORD,yusen,Yusen 影院',
-
+      
+      // 宸澄 Emby
+      'DOMAIN,embycc.wybcs.work,宸澄影院',
+      
       // 1111 Emby
       'DOMAIN-SUFFIX,emby.moe,1111 影院',
       'DOMAIN-SUFFIX,xxlb.net,1111 影院',
