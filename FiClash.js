@@ -161,9 +161,9 @@ function main(config) {
       )
     );
 
-    // 三个 Emby 分组都可以直接选择 HK / US / JP 的 0.2 倍节点。
+    // 四个 Emby 分组支持香港、美国、日本、新加坡的 0.2 倍节点
     function embyLowMembers() {
-      return ['香港','美国','日本'].reduce(function (out, r) {
+      return ['香港','美国','日本','新加坡'].reduce(function (out, r) {
         return out.concat(pools[r].filter(isLowRate));
       }, []);
     }
@@ -176,7 +176,7 @@ function main(config) {
       );
 
       if (providerOnly) {
-        var reg = '(香港|港区|HK[0-9 _-]|Hong.?Kong|🇭🇰|美国|美國|US[0-9 _-]|United.?States|🇺🇸|日本|JP[0-9 _-]|Japan|🇯🇵)';
+        var reg = '(香港|港区|HK[0-9 _-]|Hong.?Kong|🇭🇰|美国|美國|US[0-9 _-]|United.?States|🇺🇸|日本|JP[0-9 _-]|Japan|🇯🇵|新加坡|狮城|獅城|SG[0-9 _-]|Singapore|🇸🇬)';
         var rate = '(0[.]2(0)?[ ]*(x|×|倍|倍率)|20[ ]*[%％])';
 
         g.use = providerNames.slice();
