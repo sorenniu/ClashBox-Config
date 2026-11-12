@@ -204,3 +204,90 @@ function main(config) {
   return c;
 }
 
+/*
+ * Clash iOS - Strategy Group Icons V1.1
+ *
+ * 使用 Qure Color 彩色 PNG 图标
+ * 为未匹配的策略组提供默认图标
+ * 不修改 DNS / DoH / TUN / 分流 / 节点
+ *
+ * 注意：替换原来的 V1.0 图标代码
+ * 不要同时保留两个版本
+ */
+
+(function () {
+  var originalMain = main;
+
+  var base =
+    "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/";
+
+  var icons = {
+    "机场总控": "Proxy.png",
+
+    "香港": "Hong_Kong.png",
+    "日本": "Japan.png",
+    "美国": "United_States.png",
+    "新加坡": "Singapore.png",
+    "台湾": "Taiwan.png",
+    "韩国": "Korea.png",
+    "其他地区": "Global.png",
+
+    "AI 服务": "Auto.png",
+    "国内 AI": "Auto.png",
+
+    "SNTP-Emby": "Emby.png",
+    "1111 影院": "Emby.png",
+    "Yusen 影院": "Emby.png",
+    "宸澄影院": "Emby.png",
+
+    "SNTP 机场服务": "Direct.png",
+    "哔哩哔哩": "DomesticMedia.png",
+    "国际流媒体": "ForeignMedia.png",
+
+    "Telegram / 社交": "Telegram.png",
+    "开发者工具": "Global.png",
+
+    "Apple 服务": "Apple.png",
+    "Microsoft 服务": "Microsoft.png",
+    "Steam / 游戏": "Game.png",
+
+    "网络检测": "Speedtest.png",
+    "国内服务": "DomesticMedia.png",
+    "国际服务": "Global.png",
+    "漏网之鱼": "Final.png"
+  };
+
+  main = function () {
+    var result = originalMain.apply(this, arguments);
+
+    if (!result ||
+        !Array.isArray(result["proxy-groups"])) {
+      return result;
+    }
+
+    result["proxy-groups"].forEach(function (group) {
+      if (!group ||
+          typeof group.name !== "string") {
+        return;
+      }
+
+      var name = group.name;
+      var file = icons[name];
+
+      // 各地区自动优选组
+      if (name.indexOf("自动优选") !== -1) {
+        file = "Auto.png";
+      }
+
+      // 未映射的策略组统一使用默认图标
+      if (!file) {
+        file = "Global.png";
+      }
+
+      group.icon = base + file;
+    });
+
+    return result;
+  };
+})();
+
