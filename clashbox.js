@@ -555,3 +555,122 @@ function main(config, profileName) {
 
   return cfg;
 }
+
+/*
+ * ClashBox V1.6 - Color Policy Group Icons
+ * HarmonyOS / Mihomo
+ *
+ * Based on ClashBox V1.5.
+ * Uses verified Qure Color PNG icons.
+ *
+ * Only adds the icon property to proxy-groups.
+ *
+ * Preserves:
+ * - Official DNS / DoH
+ * - TUN / MTU
+ * - Proxy nodes and providers
+ * - Routing rules
+ * - All Emby settings
+ * - Existing policy group behavior
+ */
+
+(function () {
+  var originalMain = main;
+
+  var base =
+    "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/";
+
+  var icons = {
+    // Main
+    "机场总控": "Proxy.png",
+
+    // Regions
+    "香港": "Hong_Kong.png",
+    "日本": "Japan.png",
+    "美国": "United_States.png",
+    "新加坡": "Singapore.png",
+    "台湾": "Taiwan.png",
+    "韩国": "Korea.png",
+    "其他地区": "Global.png",
+
+    // AI
+    "AI 服务": "Auto.png",
+    "国内 AI": "Auto.png",
+
+    // Emby
+    "SNTP-Emby": "Emby.png",
+    "1111 影院": "Emby.png",
+    "Yusen 影院": "Emby.png",
+    "宸澄影院": "Emby.png",
+
+    // Airport
+    "SNTP 机场服务": "Direct.png",
+
+    // Streaming
+    "哔哩哔哩": "DomesticMedia.png",
+    "国际流媒体": "ForeignMedia.png",
+
+    // Applications
+    "Telegram / 社交": "Telegram.png",
+    "开发者工具": "Global.png",
+    "Apple 服务": "Apple.png",
+    "Microsoft 服务": "Microsoft.png",
+    "Steam / 游戏": "Game.png",
+
+    // Network
+    "网络检测": "Speedtest.png",
+    "国内服务": "DomesticMedia.png",
+    "国际服务": "Global.png",
+    "漏网之鱼": "Final.png"
+  };
+
+  // Preserve the original ClashBox main function.
+  main = function () {
+    var result = originalMain.apply(
+      this,
+      arguments
+    );
+
+    if (
+      !result ||
+      !Array.isArray(result["proxy-groups"])
+    ) {
+      return result;
+    }
+
+    result["proxy-groups"].forEach(
+      function (group) {
+        if (
+          !group ||
+          typeof group.name !== "string"
+        ) {
+          return;
+        }
+
+        var name = group.name;
+        var file = icons[name];
+
+        // Region auto-test groups.
+        if (name.indexOf("自动优选") !== -1) {
+          file = "Auto.png";
+        }
+
+        // Fallback icon for unmatched groups.
+        if (!file) {
+          file = "Global.png";
+        }
+
+        group.icon = base + file;
+      }
+    );
+
+    if (typeof console !== "undefined") {
+      console.log(
+        "[ClashBox V1.6] Color icons applied: " +
+        result["proxy-groups"].length
+      );
+    }
+
+    return result;
+  };
+})();
