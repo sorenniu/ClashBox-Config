@@ -1,17 +1,24 @@
 
 /*
- * ClashBox V1.4 - SNTP Private DoH Fix
- * HarmonyOS / Mihomo JavaScript Override
+ * ClashBox V1.5 | HarmonyOS / Mihomo JavaScript Override
  *
- * IGG / SNTP: each subscription is applied independently.
+ * IGG / SNTP independently loaded subscriptions.
+ * One airport configuration is active at a time.
  *
- * DNS:
- * - Common domains / IGG nodes -> public DNS
- * - SNTP *.nodecon.uk -> subscription private DoH
- * - Private credentials extracted at runtime
- * - No private token embedded in this public script
+ * This script only modifies:
+ * - proxy-groups
+ * - rules
+ * - rule-providers
  *
- * Preserves original DNS mode, TUN, hosts and proxy nodes.
+ * It does NOT modify:
+ * - DNS / DoH
+ * - hosts
+ * - TUN / MTU
+ * - sniffer
+ * - proxies
+ * - proxy-providers
+ *
+ * Official airport DNS configurations are preserved.
  */
 
 function main(config, profileName) {
@@ -23,126 +30,7 @@ function main(config, profileName) {
   var providerKeys = Object.keys(providers);
 
   // ==================================================
-  // 1. DNS
-  // ==================================================
-
-  function configureDNS() {
-    var dns = cfg.dns && typeof cfg.dns === "object"
-      ? Object.assign({}, cfg.dns)
-      : {};
-
-    var publicDNS = [
-      "https://dns.alidns.com/dns-query",
-      "https://doh.pub/dns-query"
-    ];
-
-    var privateDNS = [];
-
-    function isPrivateDoH(url) {
-      return typeof url === "string" &&
-        /^https:\/\//i.test(url) &&
-        /:2443\/dns-query\//i.test(url);
-    }
-
-    function collect(value) {
-      if (typeof value === "string") {
-        if (isPrivateDoH(value) &&
-            privateDNS.indexOf(value) === -1) {
-          privateDNS.push(value);
-        }
-      } else if (Array.isArray(value)) {
-        value.forEach(collect);
-      }
-    }
-
-    // Read private DoH from official subscription.
-    collect(dns["proxy-server-nameserver"]);
-
-    var normalPolicy = dns["nameserver-policy"] || {};
-    var proxyPolicy =
-      dns["proxy-server-nameserver-policy"] || {};
-
-    Object.keys(normalPolicy).forEach(function (key) {
-      if (/nodecon\.uk/i.test(key)) {
-        collect(normalPolicy[key]);
-      }
-    });
-
-    Object.keys(proxyPolicy).forEach(function (key) {
-      if (/nodecon\.uk/i.test(key)) {
-        collect(proxyPolicy[key]);
-      }
-    });
-
-    // Keep only public DNS for ordinary proxy nodes.
-    dns.enable = true;
-
-    if (!Array.isArray(dns["default-nameserver"]) ||
-        !dns["default-nameserver"].length) {
-      dns["default-nameserver"] = [
-        "223.5.5.5",
-        "119.29.29.29"
-      ];
-    }
-
-    if (!Array.isArray(dns.nameserver) ||
-        !dns.nameserver.length) {
-      dns.nameserver = publicDNS.slice();
-    }
-
-    dns["proxy-server-nameserver"] =
-      publicDNS.slice();
-
-    // Only configure SNTP private policy when actual
-    // private DoH is supplied by the subscription.
-    if (privateDNS.length) {
-      var newProxyPolicy =
-        Object.assign({}, proxyPolicy);
-
-      newProxyPolicy["+.nodecon.uk"] =
-        privateDNS.slice();
-
-      dns["proxy-server-nameserver-policy"] =
-        newProxyPolicy;
-
-      var newNormalPolicy =
-        Object.assign({}, normalPolicy);
-
-      newNormalPolicy["+.nodecon.uk"] =
-        privateDNS.slice();
-
-      dns["nameserver-policy"] = newNormalPolicy;
-
-      // Node domains must resolve to real IP addresses.
-      if (Array.isArray(dns["fake-ip-filter"])) {
-        var filters = dns["fake-ip-filter"].slice();
-
-        if (filters.indexOf("+.nodecon.uk") === -1 &&
-            filters.indexOf("*.nodecon.uk") === -1) {
-          filters.push("+.nodecon.uk");
-        }
-
-        dns["fake-ip-filter"] = filters;
-      }
-
-      console.log(
-        "[ClashBox DNS] SNTP private DoH enabled: " +
-        privateDNS.length + " servers"
-      );
-    } else {
-      console.log(
-        "[ClashBox DNS] No SNTP private DoH found. " +
-        "Public proxy DNS enabled."
-      );
-    }
-
-    cfg.dns = dns;
-  }
-
-  configureDNS();
-
-  // ==================================================
-  // 2. NODE CLASSIFICATION
+  // 1. NODE CLASSIFICATION
   // ==================================================
 
   if (!nodes.length && !providerKeys.length) {
@@ -228,7 +116,7 @@ function main(config, profileName) {
   }
 
   // ==================================================
-  // 3. POLICY GROUPS
+  // 2. POLICY GROUPS
   // ==================================================
 
   var groups = [];
@@ -409,7 +297,7 @@ function main(config, profileName) {
   });
 
   // ==================================================
-  // 4. RULE PROVIDERS
+  // 3. RULE PROVIDERS
   // ==================================================
 
   var defs = cfg["rule-providers"] || {};
@@ -466,7 +354,7 @@ function main(config, profileName) {
   );
 
   // ==================================================
-  // 5. ROUTING RULES
+  // 4. ROUTING RULES
   // ==================================================
 
   var personal = [
@@ -535,7 +423,6 @@ function main(config, profileName) {
     "DOMAIN-SUFFIX,steampowered.com,Steam / 游戏",
     "DOMAIN-SUFFIX,steamcontent.com,Steam / 游戏",
 
-    
     "DOMAIN-SUFFIX,ipinfo.io,网络检测",
     "DOMAIN-SUFFIX,ip-api.com,网络检测",
     "DOMAIN-SUFFIX,ip.sb,网络检测",
@@ -551,7 +438,6 @@ function main(config, profileName) {
     "DOMAIN-SUFFIX,iplocation.net,网络检测",
     "DOMAIN-SUFFIX,ip138.com,网络检测",
 
-    
     "DOMAIN-SUFFIX,weixin.qq.com,DIRECT",
     "DOMAIN-SUFFIX,wechat.com,DIRECT",
     "DOMAIN-SUFFIX,alipay.com,DIRECT",
@@ -661,7 +547,7 @@ function main(config, profileName) {
   );
 
   console.log(
-    "[ClashBox V1.4] " +
+    "[ClashBox V1.5] " +
     (profileName || "") +
     " groups=" + groups.length +
     " rules=" + cfg.rules.length
