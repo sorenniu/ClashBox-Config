@@ -203,3 +203,199 @@ function main(config) {
   if(typeof console!=='undefined')console.log('[Clash-iOS V1.0] groups='+groups.length+' rules='+c.rules.length+' DNS=official');
   return c;
 }
+
+/*
+ * Strategy Group Icons V1.0
+ *
+ * 支持：
+ * - iOS Clash
+ * - HarmonyOS ClashBox
+ * - HarmonyOS FIClash
+ * - Windows Clash Party
+ *
+ * 使用方式：
+ * 直接粘贴到现有 JS 脚本的最末尾。
+ *
+ * 只添加策略组图标。
+ * 不修改 DNS、DoH、TUN、节点或分流规则。
+ *
+ * 图标来源：
+ * Koolson / Qure
+ * lucide-icons / lucide
+ * simple-icons / simple-icons
+ */
+
+(function () {
+
+  var originalMain = main;
+
+  var qure =
+    "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/";
+
+  var lucide =
+    "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/";
+
+  var simple =
+    "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/";
+
+  var icons = {
+
+    // ======================================
+    // 机场控制
+    // ======================================
+
+    "机场总控":
+      qure + "Proxy.png",
+
+    "SNTP 机场服务":
+      qure + "Direct.png",
+
+    // ======================================
+    // 国家和地区
+    // ======================================
+
+    "香港":
+      qure + "Hong_Kong.png",
+
+    "日本":
+      qure + "Japan.png",
+
+    "美国":
+      qure + "United_States.png",
+
+    "新加坡":
+      qure + "Singapore.png",
+
+    "台湾":
+      qure + "Taiwan.png",
+
+    "韩国":
+      qure + "Korea.png",
+
+    "其他地区":
+      qure + "Global.png",
+
+    // ======================================
+    // AI
+    // ======================================
+
+    "AI 服务":
+      lucide + "brain-circuit.svg",
+
+    "国内 AI":
+      lucide + "bot.svg",
+
+    // ======================================
+    // Emby
+    // ======================================
+
+    "SNTP-Emby":
+      qure + "Emby.png",
+
+    "1111 影院":
+      lucide + "film.svg",
+
+    "Yusen 影院":
+      qure + "Emby.png",
+
+    "宸澄影院":
+      lucide + "film.svg",
+
+    // ======================================
+    // 视频和流媒体
+    // ======================================
+
+    "哔哩哔哩":
+      qure + "DomesticMedia.png",
+
+    "国际流媒体":
+      qure + "ForeignMedia.png",
+
+    // ======================================
+    // 应用服务
+    // ======================================
+
+    "Telegram / 社交":
+      qure + "Telegram.png",
+
+    "开发者工具":
+      simple + "github.svg",
+
+    "Microsoft 服务":
+      qure + "Microsoft.png",
+
+    "Apple 服务":
+      qure + "Apple.png",
+
+    "Steam / 游戏":
+      simple + "steam.svg",
+
+    // ======================================
+    // 网络和分流
+    // ======================================
+
+    "网络检测":
+      qure + "Speedtest.png",
+
+    "国内服务":
+      qure + "DomesticMedia.png",
+
+    "国际服务":
+      qure + "Global.png",
+
+    "漏网之鱼":
+      qure + "Final.png"
+
+  };
+
+  // ========================================
+  // 包装原有 main 函数
+  // 保留原始配置处理逻辑
+  // ========================================
+
+  main = function () {
+
+    var result = originalMain.apply(
+      this,
+      arguments
+    );
+
+    if (
+      !result ||
+      !Array.isArray(result["proxy-groups"])
+    ) {
+      return result;
+    }
+
+    result["proxy-groups"].forEach(
+      function (group) {
+
+        if (
+          !group ||
+          typeof group.name !== "string"
+        ) {
+          return;
+        }
+
+        var suffix = " · 自动优选";
+
+        var isAuto =
+          group.name.slice(-suffix.length)
+          === suffix;
+
+        var icon = isAuto
+          ? qure + "Auto.png"
+          : icons[group.name];
+
+        if (icon) {
+          group.icon = icon;
+        }
+
+      }
+    );
+
+    return result;
+
+  };
+
+})();
