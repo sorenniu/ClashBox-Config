@@ -674,3 +674,90 @@ function main(config, profileName) {
     return result;
   };
 })();
+
+/*
+ * HarmonyOS IP Routing V1.0
+ *
+ * Applies to:
+ * - ClashBox
+ * - FIClash
+ *
+ * Destination:
+ * 47.98.250.230/32
+ *
+ * Routing:
+ * Hong Kong policy group (香港)
+ *
+ * Preserves all existing:
+ * DNS / DoH / TUN / Emby / Icons / Rules
+ *
+ * Add this block ONCE at the end of each JS file.
+ */
+
+(function () {
+  var previousMain = main;
+
+  main = function () {
+    var config = previousMain.apply(
+      this,
+      arguments
+    );
+
+    if (
+      !config ||
+      !Array.isArray(config.rules) ||
+      !Array.isArray(config["proxy-groups"])
+    ) {
+      return config;
+    }
+
+    var targetGroup = "香港";
+
+    var targetRule =
+      "IP-CIDR,47.98.250.230/32,香港,no-resolve";
+
+    // Verify that the Hong Kong group exists.
+    var groupExists = config["proxy-groups"].some(
+      function (group) {
+        return group &&
+          group.name === targetGroup;
+      }
+    );
+
+    if (!groupExists) {
+      if (typeof console !== "undefined") {
+        console.warn(
+          "[IP Routing] Hong Kong group not found. " +
+          "Original routing preserved."
+        );
+      }
+
+      return config;
+    }
+
+    // Remove older rules for the exact same IP.
+    // This also prevents duplicates after updates.
+    config.rules = config.rules.filter(
+      function (rule) {
+        if (typeof rule !== "string") {
+          return true;
+        }
+
+        return !/^IP-CIDR,47\.98\.250\.230\/32,/i.test(
+          rule
+        );
+      }
+    );
+
+    // Give this IP rule the highest priority.
+    config.rules.unshift(targetRule);
+
+    if (typeof console !== "undefined") {
+      console.log(
+        "[IP Routing] 47.98.250.230 -> 香港"
+      );
+    }
+
+    return config;
+  };
+})();
