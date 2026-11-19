@@ -443,6 +443,7 @@ function main(config, profileName) {
     "DOMAIN-SUFFIX,alipay.com,DIRECT",
     "DOMAIN-SUFFIX,taobao.com,DIRECT",
     "DOMAIN-SUFFIX,jd.com,DIRECT",
+    "DOMAIN-KEYWORD,huangguo,国际流媒体",
 
     "RULE-SET," + streaming + ",国际流媒体"
   ];
