@@ -443,7 +443,13 @@ function main(config, profileName) {
     "DOMAIN-SUFFIX,alipay.com,DIRECT",
     "DOMAIN-SUFFIX,taobao.com,DIRECT",
     "DOMAIN-SUFFIX,jd.com,DIRECT",
-    "DOMAIN-KEYWORD,huangguo,国际流媒体",
+
+    // Huangguo streaming: fixed and mirror domains.
+    // Replaces the former DOMAIN-KEYWORD rule.
+    "DOMAIN-SUFFIX,huangguoai.com,国际流媒体",
+    "DOMAIN-SUFFIX,huangguoai.ai,国际流媒体",
+    "DOMAIN-SUFFIX,zuxszoix.cc,国际流媒体",
+    "DOMAIN-SUFFIX,ipycpknh.cc,国际流媒体",
 
     "RULE-SET," + streaming + ",国际流媒体"
   ];
